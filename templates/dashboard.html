@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Energy Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="dashboard-container">
+        <header>
+            <h1>⚡ Smart Energy AI</h1>
+            <div class="controls">
+                <button class="btn" onclick="generateData()">Generate Demo Data</button>
+                <button class="btn btn-primary" onclick="trainModel()">Train AI Model</button>
+            </div>
+        </header>
+
+        <div class="grid">
+            <!-- Top Stats -->
+            <div class="card stat-card">
+                <div class="card-title">Current Consumption</div>
+                <div class="value" id="current_val">-</div>
+                <div class="unit">kWh</div>
+            </div>
+            <div class="card stat-card">
+                <div class="card-title">Predicted for Next Hour</div>
+                <div class="value" id="predicted_val">-</div>
+                <div class="unit">kWh</div>
+            </div>
+            <div class="card stat-card">
+                <div class="card-title">24h Average</div>
+                <div class="value" id="avg_24h">-</div>
+                <div class="unit">kWh</div>
+            </div>
+            <div class="card stat-card">
+                <div class="card-title">Anomalies Detected</div>
+                <div class="value" id="anomalies_val" style="color: var(--secondary);">-</div>
+                <div class="unit">last 48h</div>
+            </div>
+
+            <!-- Main Charts -->
+            <div class="card span-3">
+                <div class="card-title">Consumption Forecast</div>
+                <div id="predictionChart" class="chart-container"></div>
+            </div>
+            <div class="card span-1">
+                <div class="card-title">Feature Importance</div>
+                <div id="importanceChart" class="chart-container"></div>
+            </div>
+
+            <div class="card span-2">
+                <div class="card-title">Historical Consumption</div>
+                <div id="historyChart" class="chart-container"></div>
+            </div>
+            <div class="card span-2">
+                <div class="card-title">Detected Anomalies</div>
+                <div id="anomalyChart" class="chart-container"></div>
+            </div>
+
+            <!-- Patterns -->
+            <div class="card">
+                <div class="card-title">Hourly Pattern</div>
+                <div id="hourlyChart" class="chart-container"></div>
+            </div>
+            <div class="card">
+                <div class="card-title">Daily Pattern</div>
+                <div id="dailyChart" class="chart-container"></div>
+            </div>
+            <div class="card">
+                <div class="card-title">Monthly Trend</div>
+                <div id="monthlyChart" class="chart-container"></div>
+            </div>
+            <div class="card">
+                <div class="card-title">Model Comparison</div>
+                <div id="comparisonChart" class="chart-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function loadStats() {
+            try {
+                const r = await fetch('/api/predict/summary');
+                const data = await r.json();
+                document.getElementById('current_val').textContent = data.current_consumption;
+                document.getElementById('predicted_val').textContent = data.predicted_next;
+                document.getElementById('avg_24h').textContent = data.avg_24h;
+                document.getElementById('anomalies_val').textContent = data.anomaly_count;
+            } catch (e) { console.error('Stats error', e); }
+        }
+
+        async function loadChart(endpoint, divId) {
+            try {
+                const r = await fetch(endpoint);
+                const data = await r.json();
+                if (data.error) {
+                    document.getElementById(divId).innerHTML = `<div style="display:flex;height:100%;align-items:center;justify-content:center;color:var(--text-muted)">${data.error}</div>`;
+                    return;
+                }
+                Plotly.newPlot(divId, data.data, data.layout);
+            } catch (e) { console.error(divId, e); }
+        }
+
+        async function init() {
+            loadStats();
+            loadChart('/api/charts/prediction', 'predictionChart');
+            loadChart('/api/charts/feature-importance', 'importanceChart');
+            loadChart('/api/charts/consumption', 'historyChart');
+            loadChart('/api/charts/anomalies', 'anomalyChart');
+            loadChart('/api/charts/hourly', 'hourlyChart');
+            loadChart('/api/charts/daily', 'dailyChart');
+            loadChart('/api/charts/monthly', 'monthlyChart');
+            loadChart('/api/charts/model-comparison', 'comparisonChart');
+        }
+
+        async function generateData() {
+            const r = await fetch('/api/data/generate', { method: 'POST' });
+            const data = await r.json();
+            alert(data.status ? `Generated ${data.rows} rows` : data.error);
+            init();
+        }
+
+        async function trainModel() {
+            const r = await fetch('/api/model/train', { method: 'POST' });
+            const data = await r.json();
+            alert(data.status ? `Trained best model: ${data.best_model}` : data.error);
+            init();
+        }
+
+        window.onload = init;
+    </script>
+</body>
+
+</html>
